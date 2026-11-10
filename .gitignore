@@ -2,3 +2,6 @@
 /Debug/
 /Release/
 /.vs/
+/ImageProcessing/x64/
+/ImageProcessing/cryptopp/lib/cryptopp.lib
+/ImageProcessing/cryptopp/debug/lib/cryptopp.lib

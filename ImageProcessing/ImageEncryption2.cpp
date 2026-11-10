@@ -1,0 +1,389 @@
+#include <random>
+#include "ImageManipulation.cpp"
+
+#include <bitset>
+#include "cryptopp/include/cryptopp/dll.h"    
+#include "cryptopp/include/cryptopp/default.h"    
+#include "cryptopp/include/cryptopp/osrng.h"    
+#include "cryptopp/include/cryptopp/aes.h"    
+#include "cryptopp/include/cryptopp/ccm.h"    
+#include <iostream>    
+
+#include <thread>
+using CryptoPP::AutoSeededRandomPool;
+using CryptoPP::AES;
+
+
+using random_bytes_engine = std::independent_bits_engine<std::default_random_engine, CHAR_BIT, unsigned char>;
+//using namespace libxl;
+//using namespace cv;
+//using namespace std;
+
+
+
+ class ImageEncryption {
+ 
+ public: ImageManipulation Image;
+
+ 
+ 
+ public: int** FisherRandomNumbers = new int* [512]; 
+ public: int** IV = new int* [512];
+ public: int*** AlterRandomNumbers = new int** [512];
+ 
+
+ public: ImageEncryption(ImageManipulation image)  {
+	 Image = image;
+	 for (int i = 0; i < 512; ++i)
+	 {
+		 FisherRandomNumbers[i] = new int[512];		 
+		 AlterRandomNumbers[i] = new int*[512];
+		 for (int j = 0; j < 512; ++j)
+		 {
+			 AlterRandomNumbers[i][j] = new int[3];
+		 } 
+	 }
+	 for (int j = 0; j < 512; ++j)
+	 {
+		 IV[j] = new int[3];
+	 }
+ }
+
+ private: void fisherYates(int row) {
+	 //AutoSeededRandomPool prng;
+	 //CryptoPP::byte key[AES::DEFAULT_KEYLENGTH];
+	 //prng.GenerateBlock(key, sizeof(key));
+
+	 //byte iv[AES::BLOCKSIZE];
+	 //iv[AES::BLOCKSIZE] = 0;
+
+
+	 std::srand(std::time(nullptr));	 
+	 array<int, 512> randomNumbers = {};
+
+	 for (int i = (Image.Image.cols - 1); i > 0; i--) {
+		 randomNumbers[i] = i;
+	 }
+
+	 for (int i = (Image.Image.cols-1); i > 0; i--) {
+		 std::srand(std::time(nullptr));
+		 int random_index = (int)std::rand() % i;
+		 int current_index = i;
+		 int temp_index;
+		 
+		 Vec3b temp = Image.Image.ptr<Vec3b>(row)[current_index];
+
+		 Image.Image.ptr<Vec3b>(row)[current_index] = Image.Image.ptr<Vec3b>(row)[random_index];
+		 Image.Image.ptr<Vec3b>(row)[random_index] = temp;
+		 temp_index = randomNumbers[current_index];
+		 
+		 randomNumbers[current_index] = randomNumbers[random_index];
+		 FisherRandomNumbers[row][current_index] = randomNumbers[random_index];
+		 
+
+		 randomNumbers[random_index] = temp_index;
+		 FisherRandomNumbers[row][random_index] = temp_index;
+		 
+	 }	 
+}
+
+
+ public:  cv::Mat encryptImage_alter_fisher() {
+
+	 //int random_variables_r[262144] = {};
+	 //int random_variables_g[262144] = {};
+	 //int random_variables_b[262144] = {};
+	 int random_variables_r = 0;
+	 int random_variables_g = 0;
+	 int random_variables_b = 0;
+	 std::ofstream outfile;
+
+
+	 int counter = 0;
+	 // for loop into each row of the block
+	 //array<array<int, 512>, 512>  randomNumbers = {};
+
+	 for (int i = 0; i < Image.Image.rows; i++)
+	 {
+
+		 Vec3b* ptr = Image.Image.ptr<Vec3b>(i);
+		 //int previous_encrypted_bit_r = NULL;
+		 std::bitset<8> previous_encrypted_bit_r = NULL;
+		 std::bitset<8> previous_encrypted_bit_g = NULL;
+		 std::bitset<8> previous_encrypted_bit_b = NULL;
+
+		 // for loop into each pixel of a row
+		 for (int j = 0; j < Image.Image.cols; j++)
+		 {
+
+			 int random_index = ((Image.Image.rows) * i) + j;
+			 // generate random byte for each pixel
+			 //if (random_variables_r == 0 || random_variables_g == 0 || random_variables_b == 0) {
+				 std::srand(std::time(nullptr)); // use current time as seed for random generator
+				 random_variables_r = (int)std::rand() % 255;
+				 std::srand(std::time(nullptr));
+				 random_variables_g = (int)std::rand() % 255;
+				 std::srand(std::time(nullptr));
+				 random_variables_b = (int)std::rand() % 255;
+
+				 AlterRandomNumbers[i][j][0] = random_variables_r;
+				 AlterRandomNumbers[i][j][1] = random_variables_g;
+				 AlterRandomNumbers[i][j][2] = random_variables_b;
+
+				 //outfile.open("keys.txt", std::ios_base::app);
+				 //outfile << std::to_string(random_variables_r) + " ";
+				 //outfile << std::to_string(random_variables_g) + " ";
+				 //outfile << std::to_string(random_variables_b) + " ";
+				 //outfile.close();
+
+
+
+			 //}
+
+			 cv::Mat resultLAB_r;
+			 cv::Mat resultLAB_g;
+			 cv::Mat resultLAB_b;
+
+			 std::bitset<8> iv_r;
+			 std::bitset<8> iv_g;
+			 std::bitset<8> iv_b;
+
+			 // get the previous encrypted MSB bit value from the previous byte for each RGB channel
+			 if (j != 0) {
+				 iv_r = previous_encrypted_bit_r;
+				 iv_g = previous_encrypted_bit_g;
+				 iv_b = previous_encrypted_bit_b;
+			 }
+			 else {
+				 //IV;
+				 int iv_rand_r;
+				 int iv_rand_g;
+				 int iv_rand_b;
+				 std::srand(std::time(nullptr));
+				 iv_rand_r = (int)std::rand() % 255;
+				 std::srand(std::time(nullptr));
+				 iv_rand_g = (int)std::rand() % 255;
+				 std::srand(std::time(nullptr));
+				 iv_rand_b = (int)std::rand() % 255;
+				 IV[i][0] = iv_rand_r;
+				 IV[i][1] = iv_rand_g;
+				 IV[i][2] = iv_rand_b;
+				iv_r = iv_rand_r;
+				iv_g = iv_rand_g;
+				iv_b = iv_rand_b;
+			 }
+			 int pixel_r = (int)ptr[j][0];
+			 int pixel_g = (int)ptr[j][1];
+			 int pixel_b = (int)ptr[j][2];
+
+			 // get the MSB bit of each byte of each RGB channel
+			 std::bitset<8> msb_r = std::bitset<8>(pixel_r);
+			 std::bitset<8> msb_g = std::bitset<8>(pixel_g);
+			 std::bitset<8> msb_b = std::bitset<8>(pixel_b);
+			 std::bitset<8> msb_random_variables_r = (std::bitset<8>(random_variables_r));
+			 std::bitset<8> msb_random_variables_g = (std::bitset<8>(random_variables_g));
+			 std::bitset<8> msb_random_variables_b = (std::bitset<8>(random_variables_b));
+
+			 // XOR the MSB bit
+			 std::bitset<8> encrypted_r = msb_r ^ iv_r ^ msb_random_variables_r;			 
+			 std::bitset<8> encrypted_g = msb_g ^ iv_g ^ msb_random_variables_g;
+			 std::bitset<8> encrypted_b = msb_b ^ iv_b ^ msb_random_variables_b;
+			 //std::bitset<8> encrypted_r = msb_r ^ iv_r ;
+			 //std::bitset<8> encrypted_g = msb_g ^ iv_g ;			 
+			 //std::bitset<8> encrypted_b = msb_b ^ iv_b ;
+
+
+
+			 // Save the result for the next pixel to be used in the eencryption
+			 previous_encrypted_bit_r = encrypted_r;
+			 previous_encrypted_bit_g = encrypted_g;
+			 previous_encrypted_bit_b = encrypted_b;
+
+
+			 // replace the encrypted pixel back into the block			 
+			 Image.Image.ptr<Vec3b>(i)[j] = Vec3b((int)(encrypted_r.to_ulong()), (int)(encrypted_g.to_ulong()), (int)(encrypted_b.to_ulong()));
+		 }
+
+	 }
+	 // return the block
+
+	 return Image.Image;
+ }
+
+ public:  cv::Mat encryptImage(bool withFisher, bool withMSB, bool withChannelSwap ) {
+	 
+	 //int random_variables_r[262144] = {};
+	 //int random_variables_g[262144] = {};
+	 //int random_variables_b[262144] = {};
+	 int random_variables_r=0;
+	 int random_variables_g=0;
+	 int random_variables_b=0;
+	 std::ofstream outfile;
+	
+
+	 int counter = 0;	 
+	 // for loop into each row of the block
+	 //array<array<int, 512>, 512>  randomNumbers = {};
+	 
+	 for (int i = 0; i < Image.Image.rows; i++)
+	 {
+		 
+		 Vec3b* ptr = Image.Image.ptr<Vec3b>(i);
+		 //int previous_encrypted_bit_r = NULL;
+		 std::bitset<8> previous_encrypted_bit_r = NULL;
+		 std::bitset<8> previous_encrypted_bit_g = NULL;
+		 std::bitset<8> previous_encrypted_bit_b = NULL;
+		 
+		 // for loop into each pixel of a row
+		 for (int j = 0; j < Image.Image.cols; j++)
+		 {
+			 
+			 int random_index = ((Image.Image.rows) * i) + j;
+			 // generate random byte for each pixel
+			 if (random_variables_r== 0 || random_variables_g== 0 || random_variables_b== 0) {				 
+				 std::srand(std::time(nullptr)); // use current time as seed for random generator
+				 random_variables_r= (int)std::rand() % 255;
+				 std::srand(std::time(nullptr));
+				 random_variables_g= (int)std::rand() % 255;
+				 std::srand(std::time(nullptr));
+				 random_variables_b= (int)std::rand() % 255;
+				 
+
+				outfile.open("keys.txt", std::ios_base::app);				 
+				outfile << std::to_string(random_variables_r) + " ";
+				outfile << std::to_string(random_variables_g) + " ";
+				outfile << std::to_string(random_variables_b) + " ";
+				outfile.close();
+				
+
+
+			 }
+
+			 cv::Mat resultLAB_r;
+			 cv::Mat resultLAB_g;
+			 cv::Mat resultLAB_b;
+			 
+			 std::bitset<8> iv_r;
+			 iv_r.set(7, 0);
+			 std::bitset<8> iv_g;
+			 iv_g.set(7, 1);
+			 std::bitset<8> iv_b;
+			 iv_b.set(7, 1);
+
+			 std::bitset<8> msb_extractor(128);
+
+			 // get the previous encrypted MSB bit value from the previous byte for each RGB channel
+			 if (j != 0) {				 
+				 iv_r = previous_encrypted_bit_r ;
+				 iv_g = previous_encrypted_bit_g ;
+				 iv_b = previous_encrypted_bit_b ;
+			 }
+			 int pixel_r = (int) ptr[j][0];
+			 int pixel_g = (int) ptr[j][1];
+			 int pixel_b = (int) ptr[j][2];			 			 			 			 			 
+			 
+			 // get the MSB bit of each byte of each RGB channel
+			 std::bitset<8> msb_r = std::bitset<8>(pixel_r) & msb_extractor;
+			 std::bitset<8> msb_g = std::bitset<8>(pixel_g) & msb_extractor;
+			 std::bitset<8> msb_b = std::bitset<8>(pixel_b) & msb_extractor;
+			 std::bitset<8> msb_random_variables_r = (std::bitset<8>(random_variables_r)) & msb_extractor;
+			 std::bitset<8> msb_random_variables_g = (std::bitset<8>(random_variables_g)) & msb_extractor;
+			 std::bitset<8> msb_random_variables_b = (std::bitset<8>(random_variables_b)) & msb_extractor;
+
+
+
+			 std::bitset<8> new_msb_r = std::bitset<8>(pixel_r);
+			 std::bitset<8> new_msb_g = std::bitset<8>(pixel_g);
+			 std::bitset<8> new_msb_b = std::bitset<8>(pixel_b);
+
+			 // XOR the MSB bit
+			 if(withMSB)
+			 {
+				 std::bitset<8> encrypted_r = msb_r ^ iv_r ^ msb_random_variables_r;
+				 std::bitset<8> encrypted_g = msb_g ^ iv_g ^ msb_random_variables_g;
+				 std::bitset<8> encrypted_b = msb_b ^ iv_b ^ msb_random_variables_b;
+
+				 // Save the result for the next pixel to be used in the eencryption
+				 previous_encrypted_bit_r = encrypted_r;
+				 previous_encrypted_bit_g = encrypted_g;
+				 previous_encrypted_bit_b = encrypted_b;
+
+
+				 // replace the encrypted MSB bit back into the RGB channels
+				 new_msb_r.set(7, encrypted_r[7]);
+				 new_msb_g.set(7, encrypted_g[7]);
+				 new_msb_b.set(7, encrypted_b[7]);
+			 }
+			 
+			 if(withChannelSwap)
+			 {
+				 // map the other 3 MSB for channel R with channel G
+				 new_msb_r.set(6, std::bitset<8>(pixel_g)[4]);
+				 new_msb_r.set(5, std::bitset<8>(pixel_g)[6]);
+				 new_msb_r.set(4, std::bitset<8>(pixel_g)[5]);
+
+				 // map the other 3 MSB for channel G with channel B
+				 new_msb_g.set(6, std::bitset<8>(pixel_b)[4]);
+				 new_msb_g.set(5, std::bitset<8>(pixel_b)[6]);
+				 new_msb_g.set(4, std::bitset<8>(pixel_b)[5]);
+
+				 // map the other 3 MSB for channel B with channel R
+				 new_msb_b.set(6, std::bitset<8>(pixel_r)[4]);
+				 new_msb_b.set(5, std::bitset<8>(pixel_r)[6]);
+				 new_msb_b.set(4, std::bitset<8>(pixel_r)[5]);
+			 }
+				
+			 
+			 // replace the encrypted pixel back into the block			 
+			 Image.Image.ptr<Vec3b>(i)[j] = Vec3b((int)(new_msb_r.to_ulong()), (int)(new_msb_g.to_ulong()), (int)(new_msb_b.to_ulong()));
+		 }
+
+		 //shuffle the columns using fisher-yates method
+		 //randomNumbers[i]=fisherYates(Image.Image,i);
+		 if (withFisher)
+		 {
+			 fisherYates(i);
+		 }
+		 
+	 }
+	 // return the block
+	 
+	 return Image.Image;
+ }
+
+
+
+ public:  cv::Mat encryptImage_Feb(cv::Mat image, int(&random_variables)[4096]) {
+	 int counter = 0;
+	 cv::Mat* blocksXORed = new cv::Mat[(image.rows * image.cols)];
+	 for (int i = 0; i < image.rows; i++)
+	 {
+		 Vec3b* ptr = image.ptr<Vec3b>(i);
+		 for (int j = 0; j < image.cols; j++)
+		 {
+			 int random_index = ((image.rows) * i) + j;
+
+			 if (random_variables[random_index] == 0) {
+				 std::srand(std::time(nullptr)); // use current time as seed for random generator
+				 random_variables[random_index] = (int)std::rand() % 255;
+			 }
+
+
+			 cv::Mat resultLAB;
+			 Vec3b iv = 234;
+			 if (j != 0) {
+				 iv = ptr[j - 1];
+			 }
+			 Vec3b pixel = ptr[j];
+			 cv::bitwise_xor(pixel, iv, resultLAB);
+			 cv::bitwise_xor(resultLAB, random_variables[random_index], resultLAB);
+			 image.ptr<Vec3b>(i)[j] = resultLAB;
+			 pixel = resultLAB;
+		 }
+	 }
+	 return image;
+ }
+
+
+
+};
