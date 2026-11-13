@@ -1,26 +1,49 @@
 # Full Colour Image Encryption (Baseline)
 
-C++ implementation of the full-image encryption variant used as the baseline in my master's thesis and journal article. It encrypts every pixel of a colour image, so its security and speed can be compared with the selective method in [ThesisSelectiveEncryption](https://github.com/IJacaman/ThesisSelectiveEncryption).
+C++ implementation of the full-image encryption variant used as the baseline in my master's thesis and journal article. It applies the same operations as the selective scheme in [ThesisSelectiveEncryption](https://github.com/IJacaman/ThesisSelectiveEncryption) to every block of the image, so that the security and speed of selective and full encryption can be compared. The MATLAB evaluation scripts are in [MatLab](https://github.com/IJacaman/MatLab).
 
 **Paper:** https://doi.org/10.54963/jic.v4i2.1616
 
+## Method
+
+Every block of the colour image is encrypted: the most significant bit of each byte is XORed, the 7th–5th bits are swapped between the red, green and blue channels, pixels are scrambled column-wise with the Fisher–Yates shuffle, and each byte is XORed with the previous one plus a random byte in a CBC-like mode. Decryption applies the inverse steps with the same key.
+
 ## Requirements
 
-- Windows with Visual Studio 2019 or later, "Desktop development with C++" workload <!-- TODO: confirm -->
-- Crypto++ <!-- TODO: bundled or installed separately? -->
+- Windows with Visual Studio 2019 or later and the "Desktop development with C++" workload
+- Crypto++ (included in `cryptopp/`)
 
 ## Build
 
-1. Open the `.sln` file in Visual Studio. <!-- TODO: name the solution file -->
-2. Select `Release | x64` and build.
+1. Open `ImageProcessing.sln` in Visual Studio.
+2. Select `Release | x64` and build. Build Crypto++ first if Visual Studio reports a missing `cryptlib` library.
 
 ## Run
 
-<!-- TODO: exact command or where input paths and key are set -->
+[FILL IN: how to start the program, e.g. `ImageProcessing.exe <input image> <key>`, or which variables in which source file set the input image and key.]
 
-## Reproducing the paper's results
+Input images are read from `images/`. [FILL IN: where encrypted and decrypted images are written.]
 
-Run the program on the same test images and key as the selective method, then compare security metrics and execution time against the selective variant, as in the paper's comparison tables. <!-- TODO: name the tables -->
+## Reproducing the results
+
+Encrypt the same test images with the same key as the selective scheme, run the MATLAB scripts on both sets of outputs, and compare the security metrics and execution times, as in the paper's comparison tables.
+
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `ImageProcessing/` | Source code of the full-image scheme |
+| `cryptopp/` | Bundled Crypto++ library |
+| `images/` | Test images |
+| `ImageProcessing.sln` | Visual Studio solution |
+
+## Known limitations
+
+The random values used during encryption come from an external pseudo-random source (thesis, Section 5.2). A cryptographically secure generator should be used in any real deployment.
+
+## Status
+
+This repository contains the thesis code as recovered from the last working backup after the original development machine was lost. It has not yet been rebuilt on a clean machine. If you run into a build problem, please open an issue.
 
 ## Citation
 
@@ -45,4 +68,4 @@ Master's thesis (Palestine Polytechnic University, 2023), supervised by Dr. Mous
 
 ## License
 
-MIT License (see `LICENSE`). Bundled third-party libraries keep their own licenses.
+MIT License (see `LICENSE`). Crypto++ keeps its own license.
